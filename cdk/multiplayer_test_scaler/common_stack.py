@@ -3,7 +3,9 @@
 
 from aws_cdk import (
     Stack,
+    RemovalPolicy,
     aws_ec2 as ec2,
+    aws_s3 as s3,
 )
 import aws_cdk as cdk
 from constructs import Construct
@@ -93,6 +95,19 @@ class O3DECommonStack(Stack):
             'Allow cross instance communication on UDP',
         )
 
+        # Create bucket where test artifacts should be uploaded
+        # to retain this on stack destroy, change properties:
+        # removal_policy=RemovalPolicy.RETAIN, auto_delete_objects=False
+        self._artifacts_bucket = s3.Bucket(self, 'ArtifactsBucket',
+            removal_policy=RemovalPolicy.DESTROY,
+            auto_delete_objects=True)
+        cdk.CfnOutput(
+            self,
+            f'{RESOURCE_ID_COMMON_PREFIX}ArtifactBucketName',
+            description="Bucket where test artifacts will be uploaded",
+            value=self._artifacts_bucket.bucket_name,
+            export_name=f'{RESOURCE_ID_COMMON_PREFIX}ArtifactBucketName')
+
     @property
     def vpc(self) -> ec2.Vpc:
         """
@@ -108,3 +123,10 @@ class O3DECommonStack(Stack):
         :return: Shared security group
         """
         return self._security_group
+
+    @property
+    def artifacts_bucket(self) -> s3.Bucket:
+        """
+        Get the S3 bucket where test artifacts should be stored
+        """
+        return self._artifacts_bucket
