@@ -2,9 +2,12 @@
 # SPDX-License-Identifier: MIT-0
 
 from aws_cdk import (
+    Duration,
     Stack,
     RemovalPolicy,
     aws_ec2 as ec2,
+    aws_iam as iam,
+    aws_lambda as _lambda,
     aws_s3 as s3,
 )
 import aws_cdk as cdk
@@ -107,6 +110,36 @@ class O3DECommonStack(Stack):
             description="Bucket where test artifacts will be uploaded",
             value=self._artifacts_bucket.bucket_name,
             export_name=f'{RESOURCE_ID_COMMON_PREFIX}ArtifactBucketName')
+        
+        # Create lambda to upload artifacts to external bucket when test ends
+        self._create_upload_lambda()
+        
+    def _create_upload_lambda(self):
+        upload_policy = iam.Policy(self, 'UploadLambdaPolicy', 
+            document=iam.PolicyDocument(
+                statements=[
+                    iam.PolicyStatement(
+                        effect=iam.Effect.ALLOW,
+                        actions=['cloudformation:ListExports'],
+                        resources=["*"]
+                    ),
+                    iam.PolicyStatement(
+                        effect=iam.Effect.ALLOW,
+                        actions=['s3:*'],
+                        resources=["*"], # TODO: import metrics bucket
+                    )
+                ]
+            )
+        )
+
+        self._upload_lambda = _lambda.Function(self, f'{RESOURCE_ID_COMMON_PREFIX}ArtifactUploadLambda',
+            runtime=_lambda.Runtime.PYTHON_3_9,
+            code=_lambda.Code.from_asset('lambda/upload_test_artifacts'),
+            handler='upload_test_artifacts.handler',
+            timeout=Duration.seconds(240) 
+        )
+        self._upload_lambda.role.attach_inline_policy(upload_policy)
+        self._artifacts_bucket.grant_read(self._upload_lambda.role)
 
     @property
     def vpc(self) -> ec2.Vpc:
@@ -130,3 +163,11 @@ class O3DECommonStack(Stack):
         Get the S3 bucket where test artifacts should be stored
         """
         return self._artifacts_bucket
+    
+    @property
+    def upload_lambda(self) -> _lambda.Function:
+        """
+        Get the lambda function used to upload test artifacts.
+        Intended to be used as a target to trigger on child stack destruction.
+        """
+        return self._upload_lambda

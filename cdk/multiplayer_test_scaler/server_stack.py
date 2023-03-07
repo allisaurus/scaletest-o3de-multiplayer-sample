@@ -6,6 +6,7 @@ from aws_cdk import (
     aws_iam as iam,
     aws_ec2 as ec2,
     aws_s3 as s3,
+    aws_lambda as _lambda,
 )
 import aws_cdk as cdk
 from constructs import Construct
@@ -22,7 +23,7 @@ class O3DEServerStack(Stack):
     Create stack for deploying AWS resources required to run the multiplayer server
     """
     def __init__(self, scope: Construct, construct_id: str, vpc: ec2.Vpc, security_group: ec2.SecurityGroup,
-                 platform: str, project_name: str, artifacts_bucket: s3.Bucket, **kwargs) \
+                 platform: str, project_name: str, artifacts_bucket: s3.Bucket, upload_lambda: _lambda.Function, **kwargs) \
             -> None:
         super().__init__(scope, construct_id, **kwargs)
         self._vpc = vpc
@@ -30,6 +31,7 @@ class O3DEServerStack(Stack):
         self._platform = platform
         self._project_name = project_name
         self._artifacts_bucket = artifacts_bucket
+        self._upload_lambda = upload_lambda
 
         self._server_port = self.node.try_get_context('server_port')
         if not self._server_port:
@@ -159,5 +161,6 @@ class O3DEServerStack(Stack):
 
     def _create_server_upload_automation(self):
         self._upload_automation = ServerAutomationConstruct(
-            self, f'{RESOURCE_ID_COMMON_PREFIX}ServerAutomationConstruct') \
-                .create_file_sync_rule(self._artifacts_bucket.bucket_name)
+            self, f'{RESOURCE_ID_COMMON_PREFIX}ServerAutomationConstruct')
+        self._upload_automation.create_file_sync_rule(self._artifacts_bucket.bucket_name)
+        self._upload_automation.create_upload_trigger(self._upload_lambda)
