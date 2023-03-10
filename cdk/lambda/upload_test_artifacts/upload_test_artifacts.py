@@ -40,7 +40,7 @@ def handler(event, context):
     for obj in list_response['Contents']:
         key_name = obj['Key']
         copy_source = {'Bucket': source_bucket, 'Key': key_name }
-        s3_client.copy(copy_source, destination_bucket, f'MpsScalerArtifacts/{key_name}')
+        s3_client.copy(copy_source, destination_bucket, f'MpScalerArtifacts/{key_name}')
     
     return {
         'statusCode': 200,

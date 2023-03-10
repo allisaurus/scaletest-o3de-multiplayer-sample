@@ -115,18 +115,20 @@ class O3DECommonStack(Stack):
         self._create_upload_lambda()
         
     def _create_upload_lambda(self):
+        destination_bucket_name = cdk.Fn.import_value(DEFAULT_DESTINATION_BUCKET_EXPORT_NAME)
+        destination_pattern = cdk.Fn.sub('arn:${AWS::Partition}:s3:::') + destination_bucket_name + '/*'
         upload_policy = iam.Policy(self, 'UploadLambdaPolicy', 
             document=iam.PolicyDocument(
                 statements=[
                     iam.PolicyStatement(
                         effect=iam.Effect.ALLOW,
                         actions=['cloudformation:ListExports'],
-                        resources=["*"]
+                        resources=['*'] # ListExports does not support resource or condition keys
                     ),
                     iam.PolicyStatement(
                         effect=iam.Effect.ALLOW,
-                        actions=['s3:*'],
-                        resources=["*"], # TODO: import metrics bucket
+                        actions=['s3:PutObject'],
+                        resources=[destination_pattern],
                     )
                 ]
             )
