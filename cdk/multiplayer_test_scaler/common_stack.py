@@ -138,7 +138,8 @@ class O3DECommonStack(Stack):
             runtime=_lambda.Runtime.PYTHON_3_9,
             code=_lambda.Code.from_asset('lambda/upload_test_artifacts'),
             handler='upload_test_artifacts.handler',
-            timeout=Duration.seconds(240) 
+            timeout=Duration.seconds(240),
+            description='Uploads MP Scaler artifacts to external bucket when child stacks are torn down.',
         )
         self._upload_lambda.role.attach_inline_policy(upload_policy)
         self._artifacts_bucket.grant_read(self._upload_lambda.role)

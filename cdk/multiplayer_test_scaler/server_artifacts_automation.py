@@ -9,6 +9,7 @@ from aws_cdk import (
     aws_lambda as _lambda,
     aws_ssm as ssm,
 )
+import aws_cdk as cdk
 from constructs import Construct
 
 from .constants import *
@@ -24,6 +25,12 @@ class ServerAutomationConstruct(Construct):
     def create_file_sync_rule(self, artifact_bucket_name: str) -> events.CfnRule:
         self._create_command_document(artifact_bucket_name)
 
+        doc_arn = Stack.of(self).format_arn(
+            service="ssm",
+            resource="document",
+            resource_name=self._file_sync_document.name
+        )
+
         doc_run_role = iam.Role(
             self, f'{RESOURCE_ID_COMMON_PREFIX}InvokeUploadRuleRole',
             description='Role to be used by Event Bridge to run file sync rule',
@@ -33,16 +40,13 @@ class ServerAutomationConstruct(Construct):
                     iam.PolicyStatement(
                         effect=iam.Effect.ALLOW,
                         actions=['ssm:SendCommand'],
-                        resources=["*"] #TODO: scope to instance w/ stack tag and upload doc
+                        resources=[
+                            doc_arn,
+                            cdk.Fn.sub('arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/*'),
+                        ]
                     )
                 ])
             }
-        )
-
-        doc_arn = Stack.of(self).format_arn(
-            service="ssm",
-            resource="document",
-            resource_name=self._file_sync_document.name
         )
 
         # can't use L2 events.Rule b/c it doesn't yet support
